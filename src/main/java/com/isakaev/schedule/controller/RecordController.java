@@ -59,18 +59,22 @@ public class RecordController {
         Calendar c = Calendar.getInstance();
         c.setTime(date);
         c.set(Calendar.MINUTE, 00);
+        c.set(Calendar.SECOND, 00);
         int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
-        if (dayOfWeek < 2 || dayOfWeek > 7){
+        if (dayOfWeek < 2 || dayOfWeek > 7){        // График для выходных
+            int hourOfDay = c.get(Calendar.HOUR_OF_DAY);
+            if (hourOfDay < 8 || hourOfDay > 20){
+                throw new ErrorException("The record on a nonworking time is not possible");
+            }
+        }else if(dayOfWeek > 1 && dayOfWeek < 8){   // График для будней
+            int hourOfDay = c.get(Calendar.HOUR_OF_DAY);
+            if (hourOfDay < 10 || hourOfDay > 17){
+                throw new ErrorException("The record on a nonworking time is not possible");
+            }
+        }else {
             throw new ErrorException("The record on a day off is not possible");
         }
         record.setDate(dateFormat.format(date));
-
-        // Проверка корректности времени, рабочее время с 8 утра до 8 вечера.
-
-        int hourOfDay = c.get(Calendar.HOUR_OF_DAY);
-        if (hourOfDay < 8 || hourOfDay > 20){
-            throw new ErrorException("The record on a nonworking time is not possible");
-        }
 
         //Проверка количества записей (не более 10)
         Record checkRecord = new Record();
@@ -78,6 +82,29 @@ public class RecordController {
 
         if (recordService.getAll(checkRecord).size() > 9){
             throw new ErrorException("There are no available entries for this date and time");
+        }
+
+        //Проверка количества записей в день на человека(не более 1)
+        int dayOfRecord = c.get(Calendar.DAY_OF_MONTH);
+        int monthOfRecord = c.get(Calendar.MONTH);
+        int yearOfRecord = c.get(Calendar.YEAR);
+        Record recordOfDay = new Record();
+        recordOfDay.setName(record.getName());
+        List<Record> itemRecordOfDay = recordService.getAll(recordOfDay);
+        for (Record item: itemRecordOfDay) {
+            Date dateOfItem = null;
+            try{
+                dateOfItem = dateFormat.parse(item.getDate());
+            } catch (Exception ex){
+                ex.printStackTrace();
+            }
+            c.setTime(dateOfItem);
+            if (c.get(Calendar.DAY_OF_MONTH) == dayOfRecord &&
+                    c.get(Calendar.MONTH) == monthOfRecord &&
+                    c.get(Calendar.YEAR) == yearOfRecord){
+                throw new ErrorException("There are no available entries for this date more than 1 time");
+            }
+
         }
 
         this.recordService.save(record);
